@@ -9,10 +9,11 @@ from sklearn.metrics import (
     classification_report,
     roc_curve,
     auc,
-    precision_recall_curve
+    precision_recall_curve, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 )
 import pickle
 import os
+
 
 def plot_cross_validation(search_results:GridSearchCV) -> None:
     '''Takes result object from scikit-learn's GridSearchCV(),
@@ -122,4 +123,56 @@ def evaluate_model(model, X_test, y_test):
     plt.legend(loc="lower left")
     plt.show()
     
-    return cm, report, roc_auc
+    return cm, report, roc_auc, fpr, tpr
+
+def plot_confusion_matrix(cm, model_name):
+    """Plot confusion matrix."""
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    
+    plt.figure(figsize=(6, 4))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", 
+                xticklabels=['Non-Diabetic', 'Diabetic'],
+                yticklabels=['Non-Diabetic', 'Diabetic'])
+    plt.title(f"{model_name} Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.show()
+
+def tabulate_metrics(models, X_test, y_test):
+    """Tabulate evaluation metrics for multiple models.
+
+    Args:
+        models (dict): Dictionary of model names and their corresponding trained model objects.
+        X_test (array-like): Features for the test set.
+        y_test (array-like): Ground truth labels for the test set.
+
+    Returns:
+        pd.DataFrame: DataFrame containing evaluation metrics for each model.
+    """
+    metrics = {
+        'Model': [],
+        'Accuracy': [],
+        'Precision': [],
+        'Recall': [],
+        'F1-Score': [],
+        'ROC AUC': []
+    }
+
+    for model_name, model in models.items():
+        # Predict labels and probabilities
+        y_pred = model.predict(X_test)
+        y_prob = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
+
+        # Calculate metrics
+        metrics['Model'].append(model_name)
+        metrics['Accuracy'].append(accuracy_score(y_test, y_pred))
+        metrics['Precision'].append(precision_score(y_test, y_pred, pos_label=1))
+        metrics['Recall'].append(recall_score(y_test, y_pred, pos_label=1))
+        metrics['F1-Score'].append(f1_score(y_test, y_pred, pos_label=1))
+        if y_prob is not None:  # ROC AUC requires probabilities
+            metrics['ROC AUC'].append(roc_auc_score(y_test, y_prob))
+        else:
+            metrics['ROC AUC'].append("N/A")  # If the model doesn't support predict_proba
+
+    return pd.DataFrame(metrics)
